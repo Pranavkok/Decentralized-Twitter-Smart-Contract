@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+interface IProfile{
+    struct user{
+        string username;
+        string bio;
+    }
+
+     function getProfile(address _user) external view returns ( user memory);
+    
+}
+
 contract Twitter{
     uint16 public MAX_TWEET_LENGTH = 280 ;
     struct Tweet{
@@ -17,11 +27,18 @@ contract Twitter{
 
     mapping (address => Tweet[])public  tweets ;
     address public owner ;
+    IProfile profileContract ;
 
-    constructor(){
+    constructor(address _profileContract){
         owner = msg.sender ;
+        profileContract = IProfile(_profileContract) ;
     }
 
+    modifier onlyRegistered(){
+        IProfile.user memory userProfTemp = profileContract.getProfile(msg.sender);
+        require(bytes(userProfTemp.username).length > 0, "User Not Registered");
+        _;
+    }
     modifier onlyOwner(){
         require(msg.sender == owner,"Only owner is allowed ");
         _;
@@ -31,7 +48,7 @@ contract Twitter{
         MAX_TWEET_LENGTH = _newLength ;
     }
 
-    function createTweet(string memory _tweet) public{
+    function createTweet(string memory _tweet) public onlyRegistered{
         require(bytes(_tweet).length <= MAX_TWEET_LENGTH , "Maximum character limit exceed !!");
 
         Tweet memory newTweet = Tweet({
@@ -46,13 +63,13 @@ contract Twitter{
         emit TweetCreated(newTweet.id, msg.sender, _tweet, block.timestamp);
     }
 
-    function likeTweet(address _owner , uint256 _index) external {
+    function likeTweet(address _owner , uint256 _index) external onlyRegistered{
         require(tweets[_owner][_index].id == _index, "No Tweet Found"); 
         tweets[_owner][_index].likes++ ;
         emit TweetLiked(msg.sender, _owner, _index, tweets[_owner][_index].likes);
     }
 
-    function unlikeTweet(address _owner , uint256 _index) external {
+    function unlikeTweet(address _owner , uint256 _index) external onlyRegistered{
         require(tweets[_owner][_index].id == _index, "No Tweet Found"); 
         require(tweets[_owner][_index].likes > 0 , "This tweet already have zero likes"); 
         tweets[_owner][_index].likes-- ;
